@@ -8,13 +8,14 @@ A lightweight Model Context Protocol (MCP) server designed to work with Unity ap
 - Simple stdio-based transport for easy integration
 - Sample Unity-specific tool implementations
 - Built on the official [MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk)
+- Enhanced logging for better debugging
 
 ## Getting Started
 
 ### Prerequisites
 
-- [.NET 7.0 SDK](https://dotnet.microsoft.com/download) or later
-- Unity 2021.3 or later (for Unity client integration)
+- [.NET 9.0 SDK](https://dotnet.microsoft.com/download) or later
+- Unity 2022.3.19f1 or later (for Unity client integration)
 
 ### Installation
 
@@ -34,15 +35,69 @@ A lightweight Model Context Protocol (MCP) server designed to work with Unity ap
    dotnet run
    ```
 
+## Proof of Concept Integration
+
+For a complete demo showing integration with Unity, see our [project-unity](https://github.com/UnitySnippets/project-unity) repository. This demonstrates a full proof-of-concept with:
+
+- Simple Unity client implementation
+- UI for displaying server responses
+- Example tool calls
+- No dependencies beyond standard .NET
+
+## Available Tools
+
+This server implements several sample tools:
+
+- `Echo`: Echoes a message back to the client
+- `GetServerInfo`: Returns information about the server
+- `ListTools`: Lists all available tools
+- `ProcessJsonData`: Processes JSON data and returns information about it
+- `SimulateGameObjectOperation`: Simulates an operation on a Unity GameObject (move, rotate, scale, destroy)
+
 ## Usage with Unity
 
 To use this MCP server with Unity, you'll need to:
 
-1. Create a new Unity project or use an existing one
-2. Add the MCP C# SDK to your Unity project (via NuGet or direct reference)
-3. Implement a client that connects to this server
+1. Build the MCP server with `dotnet build`
+2. Reference the built server DLL from your Unity project
+3. Implement a client that launches the server as a subprocess
+4. Send tool requests via standard input/output streams
 
-### Example Unity Client Code
+### Simple Client Implementation
+
+The simplest way to connect to the server from Unity is to launch it as a subprocess and communicate via stdin/stdout:
+
+```csharp
+// Start the MCP server as a subprocess
+var process = new Process
+{
+    StartInfo = new ProcessStartInfo
+    {
+        FileName = "dotnet",
+        Arguments = "/path/to/UnityMcpServer.dll",
+        UseShellExecute = false,
+        RedirectStandardInput = true,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true
+    }
+};
+
+process.Start();
+
+// Send a request to call the Echo tool
+string jsonRequest = "{\"type\":\"tool_call\",\"tool\":\"Echo\",\"params\":{\"message\":\"Hello from Unity!\"}}";
+await process.StandardInput.WriteLineAsync(jsonRequest);
+await process.StandardInput.FlushAsync();
+
+// Read the response
+string response = await process.StandardOutput.ReadLineAsync();
+Debug.Log($"Response: {response}");
+```
+
+### Full MCP Client
+
+For a more robust integration, you can use the official MCP C# SDK:
 
 ```csharp
 using ModelContextProtocol.Client;
@@ -98,15 +153,6 @@ public class McpClientExample : MonoBehaviour
 }
 ```
 
-## Available Tools
-
-This server implements several sample tools:
-
-- `Echo`: Echoes a message back to the client
-- `GetServerInfo`: Returns information about the server
-- `ProcessJsonData`: Processes JSON data and returns information about it
-- `SimulateGameObjectOperation`: Simulates an operation on a Unity GameObject
-
 ## Extending the Server
 
 You can easily add your own tools by:
@@ -124,6 +170,7 @@ public static class MyCustomTools
     [McpServerTool, Description("My custom tool")]
     public static string MyTool(string input)
     {
+        Console.WriteLine($"MyTool called with: {input}");
         return $"Processed: {input}";
     }
 }
